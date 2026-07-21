@@ -32,6 +32,7 @@ import me.cortex.voxy.client.core.util.GPUTiming;
 import me.cortex.voxy.client.core.util.IrisUtil;
 import me.cortex.voxy.common.Logger;
 import me.cortex.voxy.common.thread.ServiceManager;
+import me.cortex.voxy.common.util.GlobalCleaner;
 import me.cortex.voxy.common.world.WorldEngine;
 import me.cortex.voxy.commonImpl.VoxyCommon;
 import net.caffeinemc.mods.sodium.client.render.chunk.ChunkRenderMatrices;
@@ -41,6 +42,7 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.lwjgl.opengl.GL11;
 
+import java.lang.ref.Cleaner;
 import java.util.Arrays;
 import java.util.List;
 
@@ -67,6 +69,8 @@ public class VoxyRenderSystem {
     private final AsyncNodeManager nodeManager;
     private final NodeCleaner nodeCleaner;
     private final HierarchicalOcclusionTraverser traversal;
+
+    private final Cleaner.Cleanable geoRef;
 
 
     private final RenderDistanceTracker renderDistanceTracker;
@@ -130,7 +134,15 @@ public class VoxyRenderSystem {
                 this.modelService = new ModelBakerySubsystem(world.getMapper());
                 this.renderGen = new RenderGenerationService(world, this.modelService, sm, IUsesMeshlets.class.isAssignableFrom(backendFactory.clz()));
 
+
                 this.geometryData = new BasicSectionGeometryData(1<<20, RenderResourceReuse.getOrCreateGeometryBuffer());
+
+                if (((BasicSectionGeometryData)this.geometryData).isExternalGeometryBuffer) {
+                    var buffer = ((BasicSectionGeometryData)this.geometryData).getGeometryBuffer();
+                    this.geoRef = GlobalCleaner.CLEANER.register(this.geometryData,() -> RenderResourceReuse.giveBackGeometryBuffer(buffer));
+                } else {
+                    this.geoRef = null;
+                }
 
                 this.nodeManager = new AsyncNodeManager(1 << 21, this.geometryData, this.renderGen);
                 this.nodeCleaner = new NodeCleaner(this.nodeManager);
@@ -528,8 +540,8 @@ public class VoxyRenderSystem {
             this.traversal.free();
             this.nodeCleaner.free();
             this.geometryData.free();
-            if (((BasicSectionGeometryData)this.geometryData).isExternalGeometryBuffer) {
-                RenderResourceReuse.giveBackGeometryBuffer(((BasicSectionGeometryData)this.geometryData).getGeometryBuffer());
+            if (this.geoRef != null) {
+                this.geoRef.clean();
             }
 
             this.chunkBoundRenderer.free();
