@@ -11,13 +11,11 @@ import java.util.Set;
 
 public class ClientVoxyMixinPlugin implements IMixinConfigPlugin {
     private static boolean valkyrienSkiesInstalled;
-    private static boolean nvidiumInstalled;
     private static boolean connectorInstalled = false;
 
     @Override
     public void onLoad(String mixinPackage) {
         valkyrienSkiesInstalled = FabricLoader.getInstance().isModLoaded("valkyrienskies");
-        nvidiumInstalled = FabricLoader.getInstance().isModLoaded("nvidium");
         connectorInstalled = FabricLoader.getInstance().isModLoaded("connector");
     }
 
@@ -26,7 +24,7 @@ public class ClientVoxyMixinPlugin implements IMixinConfigPlugin {
 
     @Override public List<String> getMixins() {
         List<String> mixins = new ArrayList<>();
-        if (valkyrienSkiesInstalled && !nvidiumInstalled) {
+        if (valkyrienSkiesInstalled) {
             mixins.add("sodium.MixinSodiumWorldRendererVS");
         } else {
             mixins.add("sodium.MixinDefaultChunkRenderer");
