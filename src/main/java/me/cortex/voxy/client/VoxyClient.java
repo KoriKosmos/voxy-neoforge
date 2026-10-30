@@ -4,21 +4,23 @@ import me.cortex.voxy.client.core.gl.Capabilities;
 import me.cortex.voxy.client.core.rendering.util.SharedIndexBuffer;
 import me.cortex.voxy.common.Logger;
 import me.cortex.voxy.commonImpl.VoxyCommon;
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.loader.api.FabricLoader;
+import me.cortex.voxy.client.config.VoxyConfigScreenFactory;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.neoforged.neoforge.common.NeoForge;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileLock;
 import java.nio.channels.NonWritableChannelException;
 import java.util.HashSet;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
-public class VoxyClient implements ClientModInitializer {
+@Mod(value = "voxy", dist = Dist.CLIENT)
+public class VoxyClient {
     private static final HashSet<String> FREX = new HashSet<>();
     private static FileLock EXCLUSIVE_LOCK;
     public static void initVoxyClient() {
@@ -63,21 +65,17 @@ public class VoxyClient implements ClientModInitializer {
         }
     }
 
-    @Override
-    public void onInitializeClient() {
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+    public VoxyClient(ModContainer container) {
+        NeoForge.EVENT_BUS.addListener((RegisterClientCommandsEvent event) -> {
             if (VoxyCommon.isAvailable()) {
-                dispatcher.register(VoxyCommands.register());
+                event.getDispatcher().register(VoxyCommands.register());
             }
         });
 
-        FabricLoader.getInstance()
-                .getEntrypoints("frex_flawless_frames", Consumer.class)
-                .forEach(api -> ((Consumer<Function<String,Consumer<Boolean>>>)api).accept(name->active->{if (active) {
-                    FREX.add(name);
-                } else {
-                    FREX.remove(name);
-                }}));
+        //Config button in the NeoForge mod list, opens voxy's page in the sodium options screen
+        container.registerExtensionPoint(IConfigScreenFactory.class, new VoxyConfigScreenFactory());
+
+        //NOTE: FREX flawless frames is a fabric entrypoint with no NeoForge equivalent, so FREX stays empty
     }
 
     public static boolean isFrexActive() {
