@@ -1,38 +1,26 @@
 package me.cortex.voxy.client;
 
-import me.cortex.voxy.client.core.IGetVoxyRenderSystem;
-import me.cortex.voxy.client.core.VoxyRenderSystem;
 import me.cortex.voxy.client.core.gl.Capabilities;
-import me.cortex.voxy.client.core.model.bakery.BudgetBufferRenderer;
 import me.cortex.voxy.client.core.rendering.util.SharedIndexBuffer;
 import me.cortex.voxy.common.Logger;
 import me.cortex.voxy.commonImpl.VoxyCommon;
-import net.minecraft.ChatFormatting;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
-// TODO: Debug screen API changed in MC 1.21.1 - disabled for now
-// import net.minecraft.client.gui.components.debug.DebugScreenDisplayer;
-// import net.minecraft.client.gui.components.debug.DebugScreenEntries;
-// import net.minecraft.client.gui.components.debug.DebugScreenEntry;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.channels.FileLock;
+import java.nio.channels.NonWritableChannelException;
 import java.util.HashSet;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-/**
- * Client initialization for Voxy on NeoForge.
- * Uses NeoForge event bus for command registration.
- */
-@EventBusSubscriber(modid = "voxy", value = Dist.CLIENT)
-public class VoxyClient {
+public class VoxyClient implements ClientModInitializer {
     private static final HashSet<String> FREX = new HashSet<>();
-
+    private static FileLock EXCLUSIVE_LOCK;
     public static void initVoxyClient() {
         Capabilities.init();//Ensure clinit is called
 
@@ -41,10 +29,30 @@ public class VoxyClient {
         }
 
         boolean systemSupported = Capabilities.INSTANCE.compute && Capabilities.INSTANCE.indirectParameters && !Capabilities.INSTANCE.hasBrokenDepthSampler;
+        if (!systemSupported) {
+             Logger.error("Voxy is unsupported on your system.");
+        }
+
+        if (systemSupported && System.getProperty("voxy.exclusiveLock", "false").equalsIgnoreCase("true")) {
+            //Try acquire the lock file
+            var vf = Minecraft.getInstance().gameDirectory.toPath().resolve(".voxy");
+            if (!vf.toFile().isDirectory()) {
+                vf.toFile().mkdir();
+            }
+            try {
+                FileOutputStream fis = new FileOutputStream(vf.resolve("voxy.lock").toFile());
+                EXCLUSIVE_LOCK = fis.getChannel().lock(0, Long.MAX_VALUE, false);
+            } catch (NonWritableChannelException | IOException e) {
+                //If some error write to log and unsupport
+                Logger.error("Failed to acquire exclusive voxy lock file, mod will be disabled");
+                systemSupported = false;
+            }
+
+        }
+
         if (systemSupported) {
 
             SharedIndexBuffer.INSTANCE.id();
-            BudgetBufferRenderer.init();
 
             VoxyCommon.setInstanceFactory(VoxyClientInstance::new);
 
@@ -52,24 +60,25 @@ public class VoxyClient {
                 Logger.warn("GPU does not support subgroup operations, expect some performance degradation");
             }
 
-        } else {
-            Logger.error("Voxy is unsupported on your system.");
         }
     }
 
-    /**
-     * NeoForge event handler for client command registration.
-     * Replaces Fabric's ClientCommandRegistrationCallback.
-     */
-    @SubscribeEvent
-    public static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
-        if (VoxyCommon.isAvailable()) {
-            event.getDispatcher().register(VoxyCommands.register());
-        }
-    }
+    @Override
+    public void onInitializeClient() {
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+            if (VoxyCommon.isAvailable()) {
+                dispatcher.register(VoxyCommands.register());
+            }
+        });
 
-    // Note: FREX flawless frames integration disabled on NeoForge
-    // (Fabric-specific entrypoint mechanism not available)
+        FabricLoader.getInstance()
+                .getEntrypoints("frex_flawless_frames", Consumer.class)
+                .forEach(api -> ((Consumer<Function<String,Consumer<Boolean>>>)api).accept(name->active->{if (active) {
+                    FREX.add(name);
+                } else {
+                    FREX.remove(name);
+                }}));
+    }
 
     public static boolean isFrexActive() {
         return !FREX.isEmpty();
