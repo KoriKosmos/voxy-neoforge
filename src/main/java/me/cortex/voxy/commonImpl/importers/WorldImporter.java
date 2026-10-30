@@ -12,12 +12,16 @@ import me.cortex.voxy.common.voxelization.WorldConversionFactory;
 import me.cortex.voxy.common.voxelization.WorldVoxilizedSectionMipper;
 import me.cortex.voxy.common.world.WorldEngine;
 import me.cortex.voxy.common.world.WorldUpdater;
+import net.minecraft.SharedConstants;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.util.datafix.DataFixTypes;
+import net.minecraft.util.datafix.DataFixers;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
@@ -467,6 +471,15 @@ public class WorldImporter implements IDataImporter {
     }
 
     private void importChunkNBT(CompoundTag chunk, int regionX, int regionZ) {
+        int ver = NbtUtils.getDataVersion(chunk, -1);
+        if (ver == -1) {
+            return;
+        }
+        if (ver != SharedConstants.getCurrentVersion().getDataVersion().getVersion()) {
+            //Upgrade chunks saved by older versions so their block states and layout can be read
+            chunk = DataFixTypes.CHUNK.updateToCurrentVersion(DataFixers.getDataFixer(), chunk, ver);
+        }
+
         if (!chunk.contains("Status")) {
             //Its not real so decrement the chunk
             this.totalChunks.decrementAndGet();
