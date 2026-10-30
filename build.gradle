@@ -84,6 +84,20 @@ neoForge {
         file('src/main/resources/META-INF/accesstransformer.cfg')
     }
 
+    // Group classes and resources into one mod file in dev, otherwise only build/resources is
+    // treated as the voxy mod and mixin/plugin classes cannot be found
+    mods {
+        voxy {
+            sourceSet sourceSets.main
+        }
+    }
+
+    runs {
+        client {
+            client()
+        }
+    }
+
     parchment {
         minecraftVersion = project.minecraft_version
         mappingsVersion = "2024.11.17"
@@ -99,6 +113,21 @@ if (!isInGHA) {
     }
 }
 
+configurations {
+    // Mods only needed to run the dev client. JarJar container jars (like Sodium's) are not
+    // discovered from the classpath, so they are copied into run/mods like a real install
+    devRuntimeMods { transitive = false }
+}
+
+tasks.register('copyDevRuntimeMods', Sync) {
+    from configurations.devRuntimeMods
+    into layout.projectDirectory.dir('run/mods')
+}
+
+tasks.matching { it.name == 'runClient' }.configureEach {
+    dependsOn 'copyDevRuntimeMods'
+}
+
 dependencies {
     // To change the versions see the gradle.properties file
     implementation "net.neoforged:neoforge:${project.neoforge_version}"
@@ -106,7 +135,7 @@ dependencies {
     // Sodium 0.8 for NeoForge (required, provides the config API used by VoxyConfigMenu)
     // The Modrinth jar is a JarJar container, so compile against the inner mod jar from CaffeineMC's maven
     compileOnly("net.caffeinemc:sodium-neoforge-mod:${project.sodium_maven_version}") { transitive = false }
-    runtimeOnly "maven.modrinth:sodium:${project.sodium_version}"
+    devRuntimeMods "maven.modrinth:sodium:${project.sodium_version}"
 
     // Optional integrations, compiled against but not required at runtime
     compileOnly "maven.modrinth:lithium:${project.lithium_version}"
@@ -369,8 +398,13 @@ dependencies {
             prefer '5.1.0'
         }
     }
-    // commons-pool2 is a transitive dependency of jedis
-    implementation 'org.apache.commons:commons-pool2:2.12.0'
+    // commons-pool2 is a transitive dependency of jedis, it is not provided by Minecraft so bundle it too
+    jarJar(implementation('org.apache.commons:commons-pool2:2.12.0')) {
+        version {
+            strictly '[2.11.0, 3.0.0)'
+            prefer '2.12.0'
+        }
+    }
 
     // Distant Horizons import support
     jarJar(implementation('org.tukaani:xz:1.10')) {
@@ -385,6 +419,12 @@ dependencies {
             prefer '3.49.1.0'
         }
     }
+    // In dev the jarJar libraries above are not on the game layer, add them like lmdb/zstd so voxy can load them
+    additionalRuntimeClasspath 'org.rocksdb:rocksdbjni:10.2.1'
+    additionalRuntimeClasspath 'redis.clients:jedis:5.1.0'
+    additionalRuntimeClasspath 'org.apache.commons:commons-pool2:2.12.0'
+    additionalRuntimeClasspath 'org.tukaani:xz:1.10'
+    additionalRuntimeClasspath 'org.xerial:sqlite-jdbc:3.49.1.0'
     //implementation 'org.rocksdb:rocksdbjni:8.10.0'
     //implementation 'redis.clients:jedis:5.1.0'
 }
