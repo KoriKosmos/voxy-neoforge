@@ -11,14 +11,22 @@ import java.util.Set;
 
 public class ClientVoxyMixinPlugin implements IMixinConfigPlugin {
     private static boolean valkyrienSkiesInstalled;
+    private static boolean irisInstalled;
 
     @Override
     public void onLoad(String mixinPackage) {
         valkyrienSkiesInstalled = Platform.isModLoaded("valkyrienskies");
+        irisInstalled = Platform.isModLoaded("iris");
     }
 
     @Override
-    public boolean shouldApplyMixin(String targetClassName, String mixinClassName) { return true; }
+    public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        //Iris is optional, dont try to apply its mixins when the target classes dont exist
+        if (mixinClassName.startsWith("me.cortex.voxy.client.mixin.iris.")) {
+            return irisInstalled;
+        }
+        return true;
+    }
 
     @Override public List<String> getMixins() {
         List<String> mixins = new ArrayList<>();
