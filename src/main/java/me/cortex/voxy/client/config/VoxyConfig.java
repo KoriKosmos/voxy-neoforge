@@ -7,7 +7,7 @@ import me.cortex.voxy.client.core.SSAO;
 import me.cortex.voxy.common.Logger;
 import me.cortex.voxy.common.util.cpu.CpuLayout;
 import me.cortex.voxy.commonImpl.VoxyCommon;
-import net.fabricmc.loader.api.FabricLoader;
+import me.cortex.voxy.commonImpl.Platform;
 
 import java.io.FileReader;
 import java.io.IOException;
@@ -95,8 +95,7 @@ public class VoxyConfig {
     }
 
     private static Path getConfigPath() {
-        return FabricLoader.getInstance()
-                .getConfigDir()
+        return Platform.getConfigDir()
                 .resolve("voxy-config.json");
     }
 

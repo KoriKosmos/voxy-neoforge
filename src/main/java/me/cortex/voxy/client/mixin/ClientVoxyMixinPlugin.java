@@ -1,6 +1,6 @@
 package me.cortex.voxy.client.mixin;
 
-import net.fabricmc.loader.api.FabricLoader;
+import me.cortex.voxy.commonImpl.Platform;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
@@ -11,12 +11,10 @@ import java.util.Set;
 
 public class ClientVoxyMixinPlugin implements IMixinConfigPlugin {
     private static boolean valkyrienSkiesInstalled;
-    private static boolean connectorInstalled = false;
 
     @Override
     public void onLoad(String mixinPackage) {
-        valkyrienSkiesInstalled = FabricLoader.getInstance().isModLoaded("valkyrienskies");
-        connectorInstalled = FabricLoader.getInstance().isModLoaded("connector");
+        valkyrienSkiesInstalled = Platform.isModLoaded("valkyrienskies");
     }
 
     @Override
