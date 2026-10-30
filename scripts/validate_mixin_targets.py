@@ -178,7 +178,7 @@ class MixinValidator:
 
     def validate_mixin_file(self, mixin_file: Path):
         """Validate a single mixin file"""
-        print(f"{BLUE}Validating:{NC} {mixin_file.relative_to(Path.cwd())}")
+        print(f"{BLUE}Validating:{NC} {mixin_file}")
 
         # Extract target class
         target_class_name = self.extract_mixin_target(mixin_file)

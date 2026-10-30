@@ -24,6 +24,9 @@ echo ""
 
 ERRORS=0
 TOTAL_MIXINS=0
+# List the JAR once: piping `jar tf` into `grep -q` lets grep exit early, the SIGPIPE
+# then fails the pipeline and classes that are present get reported as missing
+JAR_CONTENTS=$(unzip -Z1 "$JAR_FILE")
 
 # Function to validate mixin references
 validate_mixin_config() {
@@ -63,7 +66,7 @@ validate_mixin_config() {
                     local class_path="${package//./\/}/${mixin//./\/}.class"
 
                     # Verify exists in JAR
-                    if jar tf "$JAR_FILE" 2>/dev/null | grep -q "^$class_path\$"; then
+                    if grep -qx "$class_path" <<< "$JAR_CONTENTS"; then
                         echo -e "    ${GREEN}✓${NC} $mixin"
                     else
                         echo -e "    ${RED}✗ $mixin${NC}"
