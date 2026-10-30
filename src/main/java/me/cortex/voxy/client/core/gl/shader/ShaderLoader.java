@@ -51,6 +51,11 @@ public class ShaderLoader {
             String path = String.format("/assets/%s/shaders/%s", id.getNamespace(), id.getPath());
             try (InputStream in = ShaderLoadingParser.class.getResourceAsStream(path)) {
                 if (in == null) {
+                    if (!id.getNamespace().equals("voxy")) {
+                        //On NeoForge each mod jar is its own module, so another mods shader includes (e.g. sodium:include/fog.glsl)
+                        // are not visible to voxy's classloader, load them through that mods own loader instead
+                        return net.caffeinemc.mods.sodium.client.gl.shader.ShaderLoader.getShaderSource(id);
+                    }
                     throw new RuntimeException("Shader not found: " + path);
                 } else {
                     return IOUtils.toString(in, StandardCharsets.UTF_8);
