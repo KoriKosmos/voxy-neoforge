@@ -1,6 +1,7 @@
 package me.cortex.voxy.client.core.rendering.section.backend.mdic;
 
 
+import me.cortex.voxy.client.config.VoxyConfig;
 import me.cortex.voxy.client.RenderStatistics;
 import me.cortex.voxy.client.VoxyClient;
 import me.cortex.voxy.client.core.AbstractRenderPipeline;
@@ -164,6 +165,10 @@ public class MDICSectionRenderer extends AbstractSectionRenderer<MDICViewport, B
         }
         MemoryUtil.memPutInt(ptr, viewport.frameId&0x7fffffff); ptr += 4;
         viewport.innerTranslation.getToAddress(ptr); ptr += 4*3;
+
+        //World curvature planet radius in blocks (1 block = 1 meter, as in DH), 0 disables it
+        int earthCurveRatio = VoxyConfig.CONFIG.earthCurveRatio;
+        MemoryUtil.memPutFloat(ptr, earthCurveRatio>0?6371000.0f/Math.max(earthCurveRatio, 50):0.0f); ptr += 4;
 
         UploadStream.INSTANCE.commit();
     }

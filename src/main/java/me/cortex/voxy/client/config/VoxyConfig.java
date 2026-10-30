@@ -38,6 +38,9 @@ public class VoxyConfig {
     public boolean adaptCloudDistance = true;
     public int cloudDistance = 0;
     public boolean dontUseSodiumBuilderThreads = false;
+    //World curvature, simulates standing on a spherical planet (inspired by Distant Horizons)
+    // 0 = disabled, otherwise the planet radius is earth radius / ratio, valid ratios are 50-500
+    public int earthCurveRatio = 0;
 
     public String ssaoMode;
 

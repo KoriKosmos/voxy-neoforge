@@ -150,9 +150,27 @@ void setupQuad(out QuadData quad, const in Quad rawQuad, uvec2 sPos, bool genera
     quad.uvCorner = faceSize.xz;
 }
 
+//Bends terrain down around the camera as if on a sphere of radius earthRadius (based on Distant Horizons' curve.vert)
+// point is relative to the base section, cameraSubPos is the camera offset within it
+vec3 applyWorldCurvature(vec3 point) {
+    if (earthRadius <= 0.0) {
+        return point;
+    }
+    vec3 rel = point - cameraSubPos;
+    float localRadius = earthRadius + rel.y;
+    float horizontalDist = length(rel.xz);
+    float phi = horizontalDist / localRadius;
+    rel.y += (cos(phi) - 1.0) * localRadius;
+    if (phi > 0.0001) {
+        rel.xz *= sin(phi) / phi;
+    }
+    return rel + cameraSubPos;
+}
+
 vec4 getQuadCornerPos(in QuadData quad, uint cornerId) {
     vec2 cornerMask = vec2((cornerId>>1)&1u, cornerId&1u)*quad.lodScale;
     vec3 point = quad.basePoint + swizzelDataAxis(quad.axis,vec3(quad.quadSizeAddin*cornerMask,0));
+    point = applyWorldCurvature(point);
     vec4 pos = MVP * vec4(point, 1.0f);
     pos.xy += taaOffset*pos.w;
     return pos;

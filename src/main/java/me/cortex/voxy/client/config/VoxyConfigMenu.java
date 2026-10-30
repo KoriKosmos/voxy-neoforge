@@ -136,7 +136,14 @@ public class VoxyConfigMenu implements ConfigEntryPoint {
                                         Component.translatable("voxy.config.general.ssao_mode"),
                                         ()->CFG.getSSAOMode(), v->CFG.setSSAOMode(v))
                                         .setImpact(OptionImpact.MEDIUM)//TODO make it on igpus this is high
-                                        .setPostChangeFlags(RENDER_RELOAD)
+                                        .setPostChangeFlags(RENDER_RELOAD),
+                                new IntOption(
+                                        "voxy:earth_curve_ratio",
+                                        Component.translatable("voxy.config.general.earthCurveRatio"),
+                                        ()->CFG.earthCurveRatio, v->CFG.earthCurveRatio=v==0?0:Math.max(v, 50),
+                                        new Range(0, 500, 10))
+                                        .setFormatter(v->v==0?Component.translatable("options.off"):Component.literal(Math.max(v, 50)+"x"))
+                                        .setImpact(OptionImpact.LOW)
                         ), new Group(
                                 new BoolOption(
                                         "voxy:adapt_cloud_distance",
