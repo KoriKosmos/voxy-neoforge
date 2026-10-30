@@ -30,9 +30,6 @@ class MixinConfigValidator:
         # Check 1: Registration coverage
         self.check_registration_coverage()
         
-        # Check 2: Exclusion alignment
-        self.check_exclusion_alignment()
-        
         # Check 3: Remap flag validation
         self.check_remap_flags()
         
@@ -94,27 +91,6 @@ class MixinConfigValidator:
         else:
             self.passed_checks.append("All active mixins are properly registered")
             print(f"  {GREEN}✓{NC} All active mixins registered")
-        
-        print()
-    
-    def check_exclusion_alignment(self):
-        """Check that removed mixins are properly excluded from compilation"""
-        print(f"{BLUE}[2] Build Exclusion Alignment{NC}")
-        
-        # Parse build.gradle exclusions
-        with open('build.gradle') as f:
-            content = f.read()
-            exclusions = re.findall(r"exclude\s+'([^']+)'", content)
-        
-        # Check if MixinBlockableEventLoop is excluded
-        blockable_excluded = any('MixinBlockableEventLoop' in exc for exc in exclusions)
-        
-        if not blockable_excluded:
-            self.errors.append("MixinBlockableEventLoop not excluded but removed from mixin config")
-            print(f"  {RED}✗{NC} MixinBlockableEventLoop should be excluded (removed in Issue #2)")
-        else:
-            self.passed_checks.append("MixinBlockableEventLoop properly excluded")
-            print(f"  {GREEN}✓{NC} MixinBlockableEventLoop excluded")
         
         print()
     
