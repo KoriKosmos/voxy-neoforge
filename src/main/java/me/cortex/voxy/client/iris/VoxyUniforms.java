@@ -2,6 +2,7 @@ package me.cortex.voxy.client.iris;
 
 import me.cortex.voxy.client.config.VoxyConfig;
 import me.cortex.voxy.client.core.IGetVoxyRenderSystem;
+import me.cortex.voxy.client.core.VoxyRenderSystem;
 import net.irisshaders.iris.gl.uniform.UniformHolder;
 import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
@@ -20,6 +21,11 @@ public class VoxyUniforms {
         }
         var vrs = getVrs.voxy$getRenderSystem();
         return new Matrix4f(vrs.getViewport().MVP);
+    }
+
+    private static VoxyRenderSystem getRenderSystem() {
+        var getVrs = (IGetVoxyRenderSystem) Minecraft.getInstance().levelRenderer;
+        return getVrs == null ? null : getVrs.voxy$getRenderSystem();
     }
 
     public static Matrix4f getModelView() {//This is 1 frame late ;-; cries, since the update occurs _before_ the voxy render pipeline
@@ -47,6 +53,14 @@ public class VoxyUniforms {
     public static void addUniforms(UniformHolder uniforms) {
         uniforms
                 .uniform1i(PER_FRAME, "vxRenderDistance", ()->Math.round(VoxyConfig.CONFIG.sectionRenderDistance*32))//In chunks
+                .uniform1f(PER_FRAME, "vxFarPlane", ()->{
+                    var vrs = getRenderSystem();
+                    return vrs == null || vrs.getViewport() == null ? 3000.0f*16 : vrs.getViewport().farPlane;
+                })
+                .uniform1f(PER_FRAME, "vxNearPlane", ()->{
+                    var vrs = getRenderSystem();
+                    return vrs == null || vrs.getViewport() == null ? 16.0f : vrs.getViewport().nearPlane;
+                })
                 .uniformMatrix(PER_FRAME, "vxViewProj", VoxyUniforms::getViewProjection)
                 .uniformMatrix(PER_FRAME, "vxViewProjInv", new Inverted(VoxyUniforms::getViewProjection))
                 .uniformMatrix(PER_FRAME, "vxViewProjPrev", new PreviousMat(VoxyUniforms::getViewProjection))
