@@ -2,6 +2,7 @@ package me.cortex.voxy.client.iris;
 
 import me.cortex.voxy.client.config.VoxyConfig;
 import me.cortex.voxy.client.core.IGetVoxyRenderSystem;
+import me.cortex.voxy.client.core.VoxyRenderSystem;
 import net.irisshaders.iris.gl.uniform.UniformHolder;
 import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
@@ -15,28 +16,33 @@ public class VoxyUniforms {
 
     public static Matrix4f getViewProjection() {//This is 1 frame late ;-; cries, since the update occurs _before_ the voxy render pipeline
         var getVrs = (IGetVoxyRenderSystem) Minecraft.getInstance().levelRenderer;
-        if (getVrs == null || getVrs.getVoxyRenderSystem() == null) {
+        if (getVrs == null || getVrs.voxy$getRenderSystem() == null) {
             return new Matrix4f();
         }
-        var vrs = getVrs.getVoxyRenderSystem();
+        var vrs = getVrs.voxy$getRenderSystem();
         return new Matrix4f(vrs.getViewport().MVP);
+    }
+
+    private static VoxyRenderSystem getRenderSystem() {
+        var getVrs = (IGetVoxyRenderSystem) Minecraft.getInstance().levelRenderer;
+        return getVrs == null ? null : getVrs.voxy$getRenderSystem();
     }
 
     public static Matrix4f getModelView() {//This is 1 frame late ;-; cries, since the update occurs _before_ the voxy render pipeline
         var getVrs = (IGetVoxyRenderSystem) Minecraft.getInstance().levelRenderer;
-        if (getVrs == null || getVrs.getVoxyRenderSystem() == null) {
+        if (getVrs == null || getVrs.voxy$getRenderSystem() == null) {
             return new Matrix4f();
         }
-        var vrs = getVrs.getVoxyRenderSystem();
+        var vrs = getVrs.voxy$getRenderSystem();
         return new Matrix4f(vrs.getViewport().modelView);
     }
 
     public static Matrix4f getProjection() {//This is 1 frame late ;-; cries, since the update occurs _before_ the voxy render pipeline
         var getVrs = (IGetVoxyRenderSystem) Minecraft.getInstance().levelRenderer;
-        if (getVrs == null || getVrs.getVoxyRenderSystem() == null) {
+        if (getVrs == null || getVrs.voxy$getRenderSystem() == null) {
             return new Matrix4f();
         }
-        var vrs = getVrs.getVoxyRenderSystem();
+        var vrs = getVrs.voxy$getRenderSystem();
         var mat = vrs.getViewport().projection;
         if (mat == null) {
             return new Matrix4f();
@@ -46,7 +52,15 @@ public class VoxyUniforms {
 
     public static void addUniforms(UniformHolder uniforms) {
         uniforms
-                .uniform1i(PER_FRAME, "vxRenderDistance", ()-> VoxyConfig.CONFIG.sectionRenderDistance*32)//In chunks
+                .uniform1i(PER_FRAME, "vxRenderDistance", ()->Math.round(VoxyConfig.CONFIG.sectionRenderDistance*32))//In chunks
+                .uniform1f(PER_FRAME, "vxFarPlane", ()->{
+                    var vrs = getRenderSystem();
+                    return vrs == null || vrs.getViewport() == null ? 3000.0f*16 : vrs.getViewport().farPlane;
+                })
+                .uniform1f(PER_FRAME, "vxNearPlane", ()->{
+                    var vrs = getRenderSystem();
+                    return vrs == null || vrs.getViewport() == null ? 16.0f : vrs.getViewport().nearPlane;
+                })
                 .uniformMatrix(PER_FRAME, "vxViewProj", VoxyUniforms::getViewProjection)
                 .uniformMatrix(PER_FRAME, "vxViewProjInv", new Inverted(VoxyUniforms::getViewProjection))
                 .uniformMatrix(PER_FRAME, "vxViewProjPrev", new PreviousMat(VoxyUniforms::getViewProjection))
@@ -57,16 +71,17 @@ public class VoxyUniforms {
                 .uniformMatrix(PER_FRAME, "vxProjInv", new Inverted(VoxyUniforms::getProjection))
                 .uniformMatrix(PER_FRAME, "vxProjPrev", new PreviousMat(VoxyUniforms::getProjection));
 
+        /*
         if (IrisShaderPatch.IMPERSONATE_DISTANT_HORIZONS) {
             uniforms
                     .uniform1f(PER_FRAME, "dhNearPlane", ()->16)//Presently hardcoded in voxy
                     .uniform1f(PER_FRAME, "dhFarPlane", ()->16*3000)//Presently hardcoded in voxy
 
-                    .uniform1i(PER_FRAME, "dhRenderDistance", ()-> VoxyConfig.CONFIG.sectionRenderDistance*32*16)//In blocks
+                    .uniform1i(PER_FRAME, "dhRenderDistance", ()->Math.round(VoxyConfig.CONFIG.sectionRenderDistance*32*16))//In blocks
                     .uniformMatrix(PER_FRAME, "dhProjection", VoxyUniforms::getProjection)
                     .uniformMatrix(PER_FRAME, "dhProjectionInverse", new Inverted(VoxyUniforms::getProjection))
                     .uniformMatrix(PER_FRAME, "dhPreviousProjection", new PreviousMat(VoxyUniforms::getProjection));
-        }
+        }*/
     }
 
 

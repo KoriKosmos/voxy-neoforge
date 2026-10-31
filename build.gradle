@@ -12,52 +12,6 @@ base {
     archivesName = project.archives_base_name
 }
 
-// Exclude optional integrations from compilation - not all available for NeoForge 1.21.1
-// These can be re-enabled once NeoForge versions become available
-sourceSets {
-    main {
-        java {
-            // Iris shader integration
-            exclude 'me/cortex/voxy/client/iris/**'
-            exclude 'me/cortex/voxy/client/core/IrisVoxyRenderPipeline.java'
-            exclude 'me/cortex/voxy/client/core/util/IrisUtil.java'
-            exclude 'me/cortex/voxy/client/mixin/iris/**'
-
-            // Sodium config API (changed in Sodium 0.6.x)
-            exclude 'me/cortex/voxy/client/config/SodiumConfigBuilder.java'
-            exclude 'me/cortex/voxy/client/config/VoxyConfigMenu.java'
-            exclude 'me/cortex/voxy/client/config/IConfigPageSetter.java'
-
-            // ModMenu integration (Fabric-only)
-            exclude 'me/cortex/voxy/client/config/ModMenuIntegration.java'
-
-            // Vivecraft VR integration - ViewportSelector now NeoForge-compatible
-            // ViewportSelector no longer excluded
-
-            // Flashback integration mixins
-            exclude 'me/cortex/voxy/client/mixin/flashback/**'
-
-            // Nvidium integration mixins
-            exclude 'me/cortex/voxy/client/mixin/nvidium/**'
-
-            // Debug screen integration (API changed in MC 1.21.1)
-            exclude 'me/cortex/voxy/client/VoxyDebugScreenEntry.java'
-            exclude 'me/cortex/voxy/client/mixin/minecraft/MixinDebugScreenEntryList.java'
-
-            // Sodium config integration mixin
-            exclude 'me/cortex/voxy/client/mixin/sodium/MixinVideoSettingsScreen.java'
-
-            // Blaze3D OpenGL debug mixin (GlDebug class not accessible in MC 1.21.1)
-            exclude 'me/cortex/voxy/client/mixin/minecraft/MixinGlDebug.java'
-
-            // MixinFogRenderer now compatible with MC 1.21.1 (rewritten to target net.minecraft.client.renderer.FogRenderer)
-
-            // BlockableEventLoop mixin (isNonRecoverable method removed in MC 1.21.1 - Issue #2)
-            exclude 'me/cortex/voxy/client/mixin/minecraft/MixinBlockableEventLoop.java'
-        }
-    }
-}
-
 repositories {
     exclusiveContent {
         forRepository {
@@ -74,39 +28,12 @@ repositories {
     exclusiveContent {
         forRepository {
             maven {
-                name "caffeinemcRepository"
-                url "https://maven.caffeinemc.net/snapshots"
+                name = "CaffeineMC"
+                url = "https://maven.caffeinemc.net/releases"
             }
         }
         filter {
             includeGroup "net.caffeinemc"
-        }
-    }
-
-    // Forgified Fabric API for NeoForge
-    maven {
-        name = "Sinytra"
-        url = "https://maven.su5ed.dev/releases"
-    }
-
-    maven { url = "https://maven.shedaniel.me/" }
-    maven { url = "https://maven.terraformersmc.com/releases/" }
-
-    exclusiveContent {
-        forRepository {
-            ivy {
-                name = "github"
-                url = "https://github.com/"
-                patternLayout {
-                    artifact '/[organisation]/[module]/releases/download/[revision]/[module]-[revision]-[classifier].[ext]'
-                }
-                metadataSources {
-                    artifact()
-                }
-            }
-        }
-        filter {
-            includeModuleByRegex("[^\\.]+", "nvidium")
         }
     }
 }
@@ -151,11 +78,24 @@ neoForge {
     version = project.neoforge_version
 
     // Validate access transformers at build time to catch invalid targets
-    // Temporarily disabled to debug build issue
-    // validateAccessTransformers = true
+    validateAccessTransformers = true
 
     accessTransformers {
         file('src/main/resources/META-INF/accesstransformer.cfg')
+    }
+
+    // Group classes and resources into one mod file in dev, otherwise only build/resources is
+    // treated as the voxy mod and mixin/plugin classes cannot be found
+    mods {
+        voxy {
+            sourceSet sourceSets.main
+        }
+    }
+
+    runs {
+        client {
+            client()
+        }
     }
 
     parchment {
@@ -173,34 +113,35 @@ if (!isInGHA) {
     }
 }
 
+configurations {
+    // Mods only needed to run the dev client. JarJar container jars (like Sodium's) are not
+    // discovered from the classpath, so they are copied into run/mods like a real install
+    devRuntimeMods { transitive = false }
+}
+
+tasks.register('copyDevRuntimeMods', Sync) {
+    from configurations.devRuntimeMods
+    into layout.projectDirectory.dir('run/mods')
+}
+
+tasks.matching { it.name == 'runClient' }.configureEach {
+    dependsOn 'copyDevRuntimeMods'
+}
+
 dependencies {
     // To change the versions see the gradle.properties file
     implementation "net.neoforged:neoforge:${project.neoforge_version}"
 
-    // Forgified Fabric API for compatibility (includes Fabric Loader API)
-    implementation "org.sinytra.forgified-fabric-api:forgified-fabric-api:${project.forgified_fabric_version}"
+    // Sodium 0.8 for NeoForge (required, provides the config API used by VoxyConfigMenu)
+    // The Modrinth jar is a JarJar container, so compile against the inner mod jar from CaffeineMC's maven
+    compileOnly("net.caffeinemc:sodium-neoforge-mod:${project.sodium_maven_version}") { transitive = false }
+    devRuntimeMods "maven.modrinth:sodium:${project.sodium_version}"
 
-    // Sodium for NeoForge (0.6.13 - latest for MC 1.21.1)
-    implementation "maven.modrinth:sodium:mc1.21.1-0.6.13-neoforge"
-
-    // Lithium for NeoForge (0.15.1 - latest for MC 1.21.1)
-    implementation("maven.modrinth:lithium:mc1.21.1-0.15.1-neoforge")
-
-    // SodiumOptionsAPI for Video Settings integration
-    // Provides event API to add custom pages to Sodium's options GUI
-    compileOnly("maven.modrinth:sodium-options-api:neoforge-1.21.1-1.0.10")
-
-    // Reese's Sodium Options - required by SodiumOptionsAPI
-    compileOnly("maven.modrinth:reeses-sodium-options:mc1.21.3-1.8.0+neoforge")
-
-    // Optional mod dependencies - commented out for initial port
-    // TODO: Add NeoForge versions when available
-    //compileOnly "drouarb:nvidium:0.4.1-beta4:1.21.6@jar"
-    //compileOnly("maven.modrinth:modmenu:17.0.0-alpha.1")
-    //compileOnly("maven.modrinth:iris:1.10.4+1.21.11-neoforge")
-    //compileOnly("maven.modrinth:chunky:1.4.54-neoforge")
-    //compileOnly("maven.modrinth:vivecraft:1.21.9-1.3.2-neoforge")
-    //compileOnly("maven.modrinth:flashback:rNCr1Rbs")
+    // Optional integrations, compiled against but not required at runtime
+    compileOnly "maven.modrinth:lithium:${project.lithium_version}"
+    compileOnly "maven.modrinth:iris:${project.iris_version}"
+    compileOnly "maven.modrinth:vivecraft:${project.vivecraft_version}"
+    compileOnly "maven.modrinth:chunky:${project.chunky_version}"
 }
 
 
@@ -457,8 +398,13 @@ dependencies {
             prefer '5.1.0'
         }
     }
-    // commons-pool2 is a transitive dependency of jedis
-    implementation 'org.apache.commons:commons-pool2:2.12.0'
+    // commons-pool2 is a transitive dependency of jedis, it is not provided by Minecraft so bundle it too
+    jarJar(implementation('org.apache.commons:commons-pool2:2.12.0')) {
+        version {
+            strictly '[2.11.0, 3.0.0)'
+            prefer '2.12.0'
+        }
+    }
 
     // Distant Horizons import support
     jarJar(implementation('org.tukaani:xz:1.10')) {
@@ -473,6 +419,12 @@ dependencies {
             prefer '3.49.1.0'
         }
     }
+    // In dev the jarJar libraries above are not on the game layer, add them like lmdb/zstd so voxy can load them
+    additionalRuntimeClasspath 'org.rocksdb:rocksdbjni:10.2.1'
+    additionalRuntimeClasspath 'redis.clients:jedis:5.1.0'
+    additionalRuntimeClasspath 'org.apache.commons:commons-pool2:2.12.0'
+    additionalRuntimeClasspath 'org.tukaani:xz:1.10'
+    additionalRuntimeClasspath 'org.xerial:sqlite-jdbc:3.49.1.0'
     //implementation 'org.rocksdb:rocksdbjni:8.10.0'
     //implementation 'redis.clients:jedis:5.1.0'
 }

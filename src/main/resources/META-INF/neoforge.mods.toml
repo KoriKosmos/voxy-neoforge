@@ -10,11 +10,17 @@ displayName="Voxy"
 description="Far distance rendering mod utilising LoDs"
 authors="Cortex"
 logoFile="assets/voxy/icon.png"
+# Voxy is client side only, dont require it on servers
+displayTest="IGNORE_ALL_VERSION"
+
+[modproperties.voxy]
+commit="${commit}"
+buildtime="${buildtime}"
 
 [[dependencies.voxy]]
 modId="neoforge"
 type="required"
-versionRange="[21.1,)"
+versionRange="[21.1.82,)"
 ordering="NONE"
 side="BOTH"
 
@@ -28,15 +34,16 @@ side="BOTH"
 [[dependencies.voxy]]
 modId="sodium"
 type="required"
-versionRange="[0.6.13,)"
+versionRange="[0.8.13,)"
 ordering="AFTER"
 side="CLIENT"
 
 [[dependencies.voxy]]
-modId="fabric_api"
-type="required"
-versionRange="[0.102.0,)"
-ordering="BEFORE"
+modId="voxyworldgenv2"
+type="incompatible"
+reason="Voxy World Gen V2 2.2.2 is broken with this version of Voxy"
+versionRange="[2.2.2]"
+ordering="NONE"
 side="BOTH"
 
 [[mixins]]
@@ -44,3 +51,6 @@ config="client.voxy.mixins.json"
 
 [[mixins]]
 config="common.voxy.mixins.json"
+
+[[accessTransformers]]
+file="META-INF/accesstransformer.cfg"

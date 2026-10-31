@@ -2,42 +2,25 @@ package me.cortex.voxy.commonImpl;
 
 import me.cortex.voxy.common.Logger;
 import me.cortex.voxy.common.config.Serialization;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.loading.FMLLoader;
-import net.neoforged.fml.loading.LoadingModList;
 
-/**
- * Common initialization for Voxy on NeoForge.
- *
- * IMPORTANT: This class may be loaded very early via mixin class loading,
- * before NeoForge's ModList is populated. We must use LoadingModList or
- * FMLLoader APIs that are available during early bootstrap.
- */
 public class VoxyCommon {
     public static final String MOD_VERSION;
     public static final boolean IS_DEDICATED_SERVER;
     public static final boolean IS_IN_MINECRAFT;
 
     static {
-        // Use LoadingModList for early access - ModList.get() may be null during mixin loading
-        var modFile = LoadingModList.get() != null ? LoadingModList.get().getModFileById("voxy") : null;
-        if (modFile == null) {
+        var mod = Platform.getVoxyModInfo();
+        if (mod == null) {
             IS_IN_MINECRAFT = false;
             Logger.error("Running voxy without minecraft");
             MOD_VERSION = "<UNKNOWN>";
             IS_DEDICATED_SERVER = false;
         } else {
             IS_IN_MINECRAFT = true;
-            // Get version from LoadingModList (available early)
-            var version = modFile.getMods().stream()
-                    .filter(m -> m.getModId().equals("voxy"))
-                    .findFirst()
-                    .map(m -> m.getVersion().toString())
-                    .orElse("<UNKNOWN>");
-            String commit = "unknown";
-            MOD_VERSION = version + "-" + commit;
-            IS_DEDICATED_SERVER = FMLLoader.getDist() == Dist.DEDICATED_SERVER;
+            var version = mod.getVersion().toString();
+            var commit = String.valueOf(mod.getModProperties().getOrDefault("commit", "<UnknownCommit>"));
+            MOD_VERSION = version + "-" + commit.substring(0,Math.min(7, commit.length()));
+            IS_DEDICATED_SERVER = Platform.isDedicatedServer();
             Serialization.init();
         }
     }
@@ -86,7 +69,11 @@ public class VoxyCommon {
         if (INSTANCE != null) {
             throw new IllegalStateException("Cannot create multiple instances");
         }
-        INSTANCE = FACTORY.create();
+        try {
+            INSTANCE = FACTORY.create();
+        } catch (DontCreateInstance e) {
+            Logger.info("Not creating instance due to DontCreateInstance");
+        }
     }
 
     //Is voxy available in any capacity

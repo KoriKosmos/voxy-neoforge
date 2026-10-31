@@ -1,7 +1,7 @@
 package me.cortex.voxy.client;
 
-import me.cortex.voxy.client.compat.FlashbackCompat;
 import me.cortex.voxy.client.config.VoxyConfig;
+import me.cortex.voxy.client.core.RenderResourceReuse;
 import me.cortex.voxy.client.mixin.sodium.AccessorSodiumWorldRenderer;
 import me.cortex.voxy.common.Logger;
 import me.cortex.voxy.common.StorageConfigUtil;
@@ -23,20 +23,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class VoxyClientInstance extends VoxyInstance {
-    public static boolean isInGame = false;
-
-    private final SectionStorageConfig storageConfig;
+    private final Config config;
     private final Path basePath;
-    private final boolean noIngestOverride;
     public VoxyClientInstance() {
         super();
-        var path = FlashbackCompat.getReplayStoragePath();
-        this.noIngestOverride = path != null;
-        if (path == null) {
-            path = getBasePath();
-        }
-        this.basePath = path;
-        this.storageConfig = StorageConfigUtil.getCreateStorageConfig(Config.class, c->c.version==1&&c.sectionStorageConfig!=null, ()->DEFAULT_STORAGE_CONFIG, path).sectionStorageConfig;
+        this.basePath = getBasePath().normalize();
+        this.config = StorageConfigUtil.getCreateStorageConfig(Config.class, c->c.version==1&&c.sectionStorageConfig!=null, ()->DEFAULT_STORAGE_CONFIG, this.basePath);
         this.updateDedicatedThreads();
     }
 
@@ -66,8 +58,9 @@ public class VoxyClientInstance extends VoxyInstance {
         var ctx = new ConfigBuildCtx();
         ctx.setProperty(ConfigBuildCtx.BASE_SAVE_PATH, this.basePath.toString());
         ctx.setProperty(ConfigBuildCtx.WORLD_IDENTIFIER, identifier.getWorldId());
+        ctx.setProperty(ConfigBuildCtx.PLAYER_UUID, Minecraft.getInstance().getUser().getProfileId().toString().replace(':','-'));
         ctx.pushPath(ConfigBuildCtx.DEFAULT_STORAGE_PATH);
-        return this.storageConfig.build(ctx);
+        return this.config.sectionStorageConfig.build(ctx);
     }
 
     public Path getStorageBasePath() {
@@ -76,11 +69,19 @@ public class VoxyClientInstance extends VoxyInstance {
 
     @Override
     public boolean isIngestEnabled(WorldIdentifier worldId) {
-        return (!this.noIngestOverride) && VoxyConfig.CONFIG.ingestEnabled;
+        return VoxyConfig.CONFIG.ingestEnabled;
+    }
+
+    @Override
+    public void shutdown() {
+        super.shutdown();
+        //Free the render resources cache since the entire instance is freed
+        RenderResourceReuse.clearResources();
     }
 
     private static class Config {
         public int version = 1;
+        public boolean disabled = false;
         public SectionStorageConfig sectionStorageConfig;
     }
 
